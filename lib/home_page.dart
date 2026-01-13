@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fire_note/app_constants.dart';
+import 'package:fire_note/login_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -9,7 +12,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   FirebaseFirestore? firebaseFirestore;
-  late CollectionReference note;
+   CollectionReference? note;
 
   bool isUpdate = false;
 
@@ -21,13 +24,34 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     firebaseFirestore = FirebaseFirestore.instance;
-    note = firebaseFirestore!.collection("notes");
+    getId();
+
+  }
+  Future<void> getId()async{
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    var uid = prefs.getString(AppConstants.loginId);
+    note = firebaseFirestore!.collection("users").doc(uid).collection("notes");
+    if(mounted){
+      setState(() {
+
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: StreamBuilder<QuerySnapshot>(stream: note.snapshots(), builder: (context,snapshot){
+      appBar: AppBar(
+        actions: [
+          IconButton(onPressed: ()async{
+            var prefs = await SharedPreferences.getInstance();
+            prefs.setString(AppConstants.loginId, "");
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context)=> LoginPage()));
+          }, icon: Icon(Icons.logout_outlined))
+        ],
+        title: Text("Notes",style: TextStyle(fontSize: 20,fontWeight: FontWeight.bold),),
+      ),
+      body: note == null ? Center(child: CircularProgressIndicator()) : StreamBuilder<QuerySnapshot>(stream: note!.snapshots(), builder: (context,snapshot){
         if(snapshot.hasData){
           return snapshot.data!.docs.isNotEmpty ? ListView.builder(
               itemCount: snapshot.data!.docs.length,
@@ -48,7 +72,7 @@ class _HomePageState extends State<HomePage> {
 
                       },icon: Icon(Icons.edit),),
                       IconButton(onPressed: (){
-                        note.doc(data.id).delete();
+                        note!.doc(data.id).delete();
 
                       },icon: Icon(Icons.delete),),
                     ],
@@ -111,7 +135,7 @@ class _HomePageState extends State<HomePage> {
                   ElevatedButton(
                     onPressed: () async{
                      if(isUpdate){
-                       note.doc(selectedId).update({
+                       note!.doc(selectedId).update({
                          "note" : titleController.text,
                          "desc" : descController.text,
                        }).then((value) {
@@ -123,7 +147,7 @@ class _HomePageState extends State<HomePage> {
                        });
                      }
                      else{
-                       await note
+                       await note!
                            .doc(
                          DateTime.now().millisecondsSinceEpoch.toString(),
                        )
