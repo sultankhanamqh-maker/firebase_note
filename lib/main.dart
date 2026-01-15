@@ -19,6 +19,32 @@ class MyApp extends StatelessWidget{
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        textTheme: TextTheme(
+          bodyMedium: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold
+          ),
+          bodySmall: TextStyle(
+            fontSize: 17
+          ),
+          headlineLarge: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 20
+          ),
+            headlineSmall: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18
+            ),
+            headlineMedium: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 15
+        )
+        )
+      ),
+
+      themeMode: ThemeMode.dark,
+      darkTheme: ThemeData.dark(),
       home: SplashScreen(),
     );
 

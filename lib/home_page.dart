@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fire_note/app_constants.dart';
+import 'package:fire_note/detail_page.dart';
 import 'package:fire_note/login_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
@@ -16,8 +17,23 @@ class _HomePageState extends State<HomePage> {
 
   bool isUpdate = false;
 
+
+  String formatTime(Timestamp timeStamp){
+
+    DateTime df= timeStamp.toDate();
+    
+    var hour = df.hour;
+    var minute = df.minute;
+    var second = df.second;
+
+
+    return "$hour:$minute:$second";
+
+  }
+
   TextEditingController titleController = TextEditingController();
   TextEditingController descController = TextEditingController();
+  TextEditingController searchController = TextEditingController();
 
   String selectedId= "";
   @override
@@ -51,44 +67,89 @@ class _HomePageState extends State<HomePage> {
         ],
         title: Text("Notes",style: TextStyle(fontSize: 20,fontWeight: FontWeight.bold),),
       ),
-      body: note == null ? Center(child: CircularProgressIndicator()) : StreamBuilder<QuerySnapshot>(stream: note!.snapshots(), builder: (context,snapshot){
-        if(snapshot.hasData){
-          return snapshot.data!.docs.isNotEmpty ? ListView.builder(
-              itemCount: snapshot.data!.docs.length,
-              itemBuilder: (context,index){
-                var data = snapshot.data!.docs[index];
-                return ListTile(
-                  title: Text(data["note"]),
-                  subtitle: Text(data["desc"]),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(onPressed: (){
-                        showSheet(isUpdate: true);
-                        selectedId = data.id;
-                        titleController.text = data["note"];
-                        descController.text = data["desc"];
+      body: Column(
+        children: [
+          SizedBox(
+            height: 60,
+            child: TextField(
+              onChanged: (_){
+                setState(() {});
+              },
+              controller: searchController,
+              decoration: InputDecoration(
+                prefixIcon: Icon(Icons.search),
+                hintText: "Search Note here ",
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+
+            ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0,horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+              Text("Notes",style: TextTheme.of(context).headlineSmall,),
+              TextButton(onPressed: (){
+
+                Navigator.push(context, MaterialPageRoute(builder: (context) => DetailPage(note:note!.snapshots())));
+              }, child: Text("See All",style: TextTheme.of(context).bodyMedium!.copyWith(color: Colors.blue),))
+            ],),
+          ),
+          note == null ? Center(child: CircularProgressIndicator()) : Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+                stream: searchController.text.isEmpty ? note!.orderBy("created_at", descending: true).limit(10).snapshots() :note!.orderBy("note", descending: true).where("note", isGreaterThanOrEqualTo: searchController.text)
+                .where("note", isLessThanOrEqualTo: '${searchController.text}\uf8ff').limit(20).snapshots(), builder: (context,snapshot){
+              if(snapshot.hasData){
+                return snapshot.data!.docs.isNotEmpty ? ListView.builder(
+                    itemCount: snapshot.data!.docs.length,
+                    itemBuilder: (context,index){
+                      var data = snapshot.data!.docs.reversed.toList()[index];
+                      return ListTile(
+                        leading: Text("${index+1}"),
+                        title: Text(data["note"],style: TextTheme.of(context).headlineLarge,),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(data["desc"],style: TextTheme.of(context).bodySmall,),
+                            if(data["created_at"] != null)
+                            Text((formatTime(data["created_at"])),style: TextTheme.of(context).bodySmall,)
+                          ],
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(onPressed: (){
+                              showSheet(isUpdate: true);
+                              selectedId = data.id;
+                              titleController.text = data["note"];
+                              descController.text = data["desc"];
 
 
-                      },icon: Icon(Icons.edit),),
-                      IconButton(onPressed: (){
-                        note!.doc(data.id).delete();
+                            },icon: Icon(Icons.edit),),
+                            IconButton(onPressed: (){
+                              note!.doc(data.id).delete();
 
-                      },icon: Icon(Icons.delete),),
-                    ],
-                  ),
-                );
-              }): Center(child: Text("No Notes Yet"),);
-        }
-        if(snapshot.hasError){
-          return Center(child: Text(snapshot.error.toString()));
-        }
-        if(snapshot.connectionState == ConnectionState.waiting){
-          return Center(child: CircularProgressIndicator());
-        }
-        return Container();
+                            },icon: Icon(Icons.delete),),
+                          ],
+                        ),
+                      );
+                    }): Center(child: Text("No Notes Yet"),);
+              }
+              if(snapshot.hasError){
+                return Center(child: Text(snapshot.error.toString()));
+              }
+              if(snapshot.connectionState == ConnectionState.waiting){
+                return Center(child: CircularProgressIndicator());
+              }
+              return Container();
 
-      }),
+            }),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           showSheet();
@@ -154,6 +215,7 @@ class _HomePageState extends State<HomePage> {
                            .set({
                          "note": titleController.text,
                          "desc": descController.text,
+                         "created_at": FieldValue.serverTimestamp()
                        }).then((value) {
                          Navigator.pop(context);
                          titleController.clear();
